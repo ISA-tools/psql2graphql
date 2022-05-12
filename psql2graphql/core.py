@@ -166,9 +166,10 @@ class BaseHandler:
 
         @return: the base query
         """
-        fields = [f'{self.table_name}."{field}"' for field in self.query_fields]
-        query = f"SELECT {', '.join(fields)} FROM {self.table_name}" + self.get_where_clause()
-        query = f"WITH {alias} AS ({query}) SELECT row_to_json({alias}) as data FROM {alias};"
+        fields = [f'"{self.table_name}"."{field}"' for field in self.query_fields]
+        query = f'SELECT {", ".join(fields)} FROM "{self.table_name}"' + self.get_where_clause()
+        query = f'WITH "{self.table_name}" AS ({query}) SELECT row_to_json("{self.table_name}")' + \
+                f'as data FROM "{self.table_name}";'
         return query
 
 
@@ -252,7 +253,7 @@ class Counter(BaseHandler):
         if len(self.tables) > 0:
             query = "SELECT row_to_json(r) as data FROM ( WITH "
             for table in self.tables:
-                with_statements.append(f"{table} AS (SELECT COUNT(*) as {table} FROM {table})")
+                with_statements.append(f"{table} AS (SELECT COUNT(*) as {table} FROM \"{table}\")")
                 selects.append(f'{table}.*')
             query += ', '.join(with_statements) + f' SELECT {", ".join(selects)} FROM {", ".join(self.tables)} ) r;'
         return query
@@ -281,6 +282,7 @@ class ClassFactory:
             'boolean': [BooleanComparator, Boolean]
         }
         self.fields = table['parameters']
+        self.table = table['name']
         self.alias = table['name'].capitalize()
         self.graph_parameters = self.generate_graph_parameters()
         self.graph_fields = self.generate_graph_fields()
@@ -329,10 +331,11 @@ def generate_queries(handlers, tables, config):
     counts = Counter(tables)
     counts.set_connection(config)
     for handler in handlers:
-        options[handler.alias.lower()] = graphList(handler.graphql_object.graph_fields,
-                                                   filters=Argument(handler.graphql_object.graph_parameters),
-                                                   description='List of %s' % handler.alias.lower())
-        options['resolve_%s' % handler.alias.lower()] = make_resolver(handler.alias.lower(), handler.graphql_object)
+        options[handler.table] = graphList(handler.graphql_object.graph_fields,
+                                           filters=Argument(handler.graphql_object.graph_parameters),
+                                           description='List of %s' % handler.table,
+                                           name=handler.table)
+        options['resolve_%s' % handler.table] = make_resolver(handler.table, handler.graphql_object)
 
     graph_counts = counts.build_graph_resolver()
     for field in graph_counts:
