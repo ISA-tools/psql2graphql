@@ -250,12 +250,14 @@ class Counter(BaseHandler):
         with_statements = []
         selects = []
         query = ''
+        tables = []
         if len(self.tables) > 0:
             query = "SELECT row_to_json(r) as data FROM ( WITH "
             for table in self.tables:
-                with_statements.append(f"{table} AS (SELECT COUNT(*) as {table} FROM \"{table}\")")
-                selects.append(f'{table}.*')
-            query += ', '.join(with_statements) + f' SELECT {", ".join(selects)} FROM {", ".join(self.tables)} ) r;'
+                with_statements.append(f'"{table}" AS (SELECT COUNT(*) as "{table}" FROM "{table}")')
+                selects.append(f'"{table}".*')
+                tables.append(f'"{table}"')
+            query += ', '.join(with_statements) + f' SELECT {", ".join(selects)} FROM {", ".join(tables)} ) r;'
         return query
 
     def build_graph_fields(self) -> object:
